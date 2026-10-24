@@ -1,5 +1,6 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+import time
 import tempfile
 import os
 
@@ -28,6 +29,20 @@ st.markdown("""
 نظام هندسي متكامل لمقارنة مواصفات المشروع الفنية مع العروض المقدمة من الموردين والمقاولين الباطن لجميع بنود وأعمال الكهرباء (كابلات، لوحات، إنارة، قواطع، محولات، إلخ).
 """)
 
+# اسم الموديل (لو جوجل قفلته مستقبلاً غيّره من هنا فقط)
+MODEL_NAME = "gemini-3.8-flash"
+
+
+def wait_for_file(client, uploaded):
+    """استنى لحد ما الملف المرفوع يبقى جاهز عند جوجل."""
+    while uploaded.state.name == "PROCESSING":
+        time.sleep(2)
+        uploaded = client.files.get(name=uploaded.name)
+    if uploaded.state.name == "FAILED":
+        raise RuntimeError("فشلت معالجة أحد الملفات عند جوجل. جرّب ملف PDF تاني.")
+    return uploaded
+
+
 # تقسيم الشاشة لرفع الملفات
 col1, col2 = st.columns(2)
 
@@ -46,10 +61,12 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
     elif not spec_file or not sub_file:
         st.warning("الرجاء رفع ملف مواصفات المشروع وملف العرض الفني للمورد معاً.")
     else:
+        spec_path = None
+        sub_path = None
         try:
-            # تهيئة المفتاح بالطريقة المتوافقة مع المفاتيح الحديثة
-            genai.configure(api_key=api_key.strip())
-            
+            # تهيئة العميل بالمكتبة الجديدة
+            client = genai.Client(api_key=api_key.strip())
+
             with st.spinner("جاري معالجة الملفات وتحليل المطابقة الهندسية بواسطة الذكاء الاصطناعي..."):
                 # حفظ الملفات مؤقتاً
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f1:
@@ -61,17 +78,18 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
                     sub_path = f2.name
 
                 # رفع الملفات إلى خوادم جيميني المؤقتة
-                spec_ref = genai.upload_file(spec_path)
-                sub_ref = genai.upload_file(sub_path)
+                spec_ref = client.files.upload(file=spec_path)
+                sub_ref = client.files.upload(file=sub_path)
 
-                # استخدام نموذج Gemini 1.5 Flash المحدث
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                # استنى لحد ما الملفات تبقى جاهزة
+                spec_ref = wait_for_file(client, spec_ref)
+                sub_ref = wait_for_file(client, sub_ref)
 
                 # صياغة البرومبت الهندسي الشامل والذكي
                 prompt = """
                 أنت استشاري هندسي كهربائي محترف وخبير في مراجعة العروض الفنية (Technical Submittals) ومطابقة المواصفات القياسية لمشاريع البنية التحتية والمنشآت.
                 قم بمقارنة مستند "مواصفات المشروع" مع "العرض الفني المقدم من المورد" بدقة هندسية تامة.
-                
+
                 قم بإعداد تقرير هندسي احترافي باللغة العربية يتضمن العناصر التالية:
                 1. **ملخص تنفيذي:** نظرة عامة عن البند محل المقارنة (كابلات، لوحات، محولات، قواطع، إنارة، إلخ).
                 2. **جدول المطابقة الفنية (Technical Compliance Table):** جدول يوضح (المواصفات المطلوبة، المواصفات المقدمة من المورد، حالة المطابقة: مطابق / غير مطابق / مطابقة بشروط).
@@ -79,15 +97,20 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
                 4. **التوصية النهائية والقرار الهندسي:** (قبول، قبول مع ملاحظات، أو رفض مع إبداء الأسباب الهندسية).
                 """
 
-                response = model.generate_content([spec_ref, sub_ref, prompt])
+                response = client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=[spec_ref, sub_ref, prompt],
+                )
 
-                st.success("تم إتمام الفحص الهندسي بنجاح!")
-                st.markdown("### 📋 التقرير الهندسي للمقارنة والمطابقة:")
-                st.markdown(response.text)
-
-                # تنظيف الملفات المؤقتة
-                os.unlink(spec_path)
-                os.unlink(sub_path)
+            st.success("تم إتمام الفحص الهندسي بنجاح!")
+            st.markdown("### 📋 التقرير الهندسي للمقارنة والمطابقة:")
+            st.markdown(response.text)
 
         except Exception as e:
             st.error(f"حدث خطأ أثناء المعالجة: {e}")
+
+        finally:
+            # تنظيف الملفات المؤقتة
+            for p in (spec_path, sub_path):
+                if p and os.path.exists(p):
+                    os.unlink(p)
