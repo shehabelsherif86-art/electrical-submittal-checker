@@ -10,6 +10,41 @@ st.set_page_config(
     layout="wide"
 )
 
+# ضبط اتجاه النص (عربي + إنجليزي) وشكل الأرقام والجداول
+st.markdown("""
+<style>
+/* الصفحة كلها من اليمين لليسار */
+.stApp { direction: rtl; }
+
+/* كل فقرة/عنوان/عنصر قائمة/خلية جدول يحدد اتجاهه حسب أول حرف فيه */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4,
+[data-testid="stMarkdownContainer"] td,
+[data-testid="stMarkdownContainer"] th {
+    unicode-bidi: plaintext;
+    text-align: start;
+}
+
+/* القوائم والجداول تبدأ من اليمين */
+[data-testid="stMarkdownContainer"] ul,
+[data-testid="stMarkdownContainer"] ol { direction: rtl; }
+[data-testid="stMarkdownContainer"] table { direction: rtl; width: 100%; }
+
+/* أي كلمة إنجليزي جوه نص عربي تفضل متماسكة */
+[data-testid="stMarkdownContainer"] code {
+    direction: ltr;
+    unicode-bidi: isolate;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # القائمة الجانبية لإدخال مفتاح الـ API
 st.sidebar.markdown("### إعدادات النظام")
 api_key = st.sidebar.text_input("Google AI Studio API Key", type="password")
@@ -95,6 +130,14 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
                 2. **جدول المطابقة الفنية (Technical Compliance Table):** جدول يوضح (المواصفات المطلوبة، المواصفات المقدمة من المورد، حالة المطابقة: مطابق / غير مطابق / مطابقة بشروط).
                 3. **الانحرافات والاختلافات الجوهرية (Deviations & Discrepancies):** رصد أي قصور أو فروق فنية عن المواصفات الاستشارية.
                 4. **التوصية النهائية والقرار الهندسي:** (قبول، قبول مع ملاحظات، أو رفض مع إبداء الأسباب الهندسية).
+
+                قواعد التنسيق (مهمة جداً):
+                - اكتب التقرير بالعربية، والمصطلحات الإنجليزية بين قوسين بعد المصطلح العربي، مثال: كابلات أحادية النواة (Single Core).
+                - لا تستخدم علامة الدولار ($) ولا صيغ LaTeX نهائياً.
+                - لا تستخدم علامات الاقتباس العكسية (`) نهائياً.
+                - اكتب كل الأرقام بالأرقام الإنجليزية (0-9).
+                - اكتب المقاسات والوحدات كنص عادي، مثال: 4 × 240 مم² أو 4C x 240 mm2، وضع كل مقاس في عمود أو سطر مستقل داخل الجدول بدل دمجه وسط جملة طويلة.
+                - لا تكتب جملة عربية طويلة تحتوي على عدة مقاسات وأرقام متتالية؛ استخدم الجدول أو نقاط قصيرة.
                 """
 
                 response = client.models.generate_content(
@@ -104,7 +147,11 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
 
             st.success("تم إتمام الفحص الهندسي بنجاح!")
             st.markdown("### 📋 التقرير الهندسي للمقارنة والمطابقة:")
-            st.markdown(response.text)
+
+            # تنظيف النص: علامة $ بتخلي ستريمليت يعرض الأرقام كمعادلات رياضية
+            # والـ backticks بتبوّظ ترتيب العربي مع الإنجليزي
+            report = response.text.replace("$", "\\$").replace("`", "")
+            st.markdown(report)
 
         except Exception as e:
             st.error(f"حدث خطأ أثناء المعالجة: {e}")
