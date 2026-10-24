@@ -16,7 +16,7 @@ api_key = st.sidebar.text_input("Google AI Studio API Key", type="password")
 st.sidebar.markdown("""
 ---
 ### 💡 طريقة الاستخدام:
-1. أدخل مفتاح الـ API المجاني.
+1. أدخل مفتاح الـ API الجديد.
 2. ارفع مستند مواصفات المشروع (PDF) لأي بند كهربائي.
 3. ارفع العرض الفني/المستند المقدم من المورد (PDF).
 4. اضغط زر تحليل ومقارنة.
@@ -47,8 +47,8 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
         st.warning("الرجاء رفع ملف مواصفات المشروع وملف العرض الفني للمورد معاً.")
     else:
         try:
-            # تفعيل المفتاح فور إدخاله
-            genai.configure(api_key=api_key)
+            # تهيئة المفتاح بالطريقة المتوافقة مع المفاتيح الحديثة
+            genai.configure(api_key=api_key.strip())
             
             with st.spinner("جاري معالجة الملفات وتحليل المطابقة الهندسية بواسطة الذكاء الاصطناعي..."):
                 # حفظ الملفات مؤقتاً
@@ -64,7 +64,7 @@ if st.button("🚀 بدء الفحص والمقارنة الهندسية الش�
                 spec_ref = genai.upload_file(spec_path)
                 sub_ref = genai.upload_file(sub_path)
 
-                # استخدام نموذج Gemini 1.5 Flash السريع والقوي
+                # استخدام نموذج Gemini 1.5 Flash المحدث
                 model = genai.GenerativeModel("gemini-1.5-flash")
 
                 # صياغة البرومبت الهندسي الشامل والذكي
